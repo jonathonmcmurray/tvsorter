@@ -4,6 +4,7 @@ import imagehash
 import cv2
 import glob
 from datetime import datetime
+import util
 
 def log(s):
     """
@@ -41,21 +42,21 @@ def matchvideo(video,pattern):
     # iterate through frames of videos until finding a match
     v = cv2.VideoCapture(video)
     s,i = v.read()
-    mins = []
-    found = False
+    mins = {}
+    #found = False
     while s:
         hash = hashframe(i)
         cmp = [h - hash for h in hashes]
-        mins.append([min(cmp), imgs[cmp.index(min(cmp))]])
+        mins = util.mineach(mins,dict(zip(imgs,cmp)))
         if 0 == min(cmp):
             log(f"Found an exact match with {imgs[cmp.index(0)]}")
-            found = True
+            #found = True
             break
         s,i = v.read()
     
-    if found == False:
-        closest = getclosest(mins)
-        log(f"Closest match ({closest[0]}) with {closest[1]}")
+    #if found == False:
+    #    closest = getclosest(mins)
+    #    log(f"Closest match ({closest[0]}) with {closest[1]}")
 
     log("Finished scanning video")
     return mins
@@ -65,9 +66,13 @@ def allvideos(videopattern,thumbpattern):
     Iterate through a glob of videos & match each one to closest thumbnail
     """
     renames = {}
+    matches = {}
     for f in glob.glob(videopattern):
-        r = matchvideo(f,thumbpattern)
-        c = getclosest(r)
-        renames[f] = os.path.splitext(os.path.basename(c[1]))[0] + ".mkv"
+        matches[f] = matchvideo(f,thumbpattern)
+        #c = getclosest(r)
+        #renames[f] = os.path.splitext(os.path.basename(c[1]))[0] + ".mkv"
     
-    return renames
+    # TODO add logic here to break any ties & create rename dict
+
+    #return renames
+    return matches
