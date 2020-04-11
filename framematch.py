@@ -22,10 +22,9 @@ def hashframe(i):
 
 def getclosest(mins):
     """
-    Given a list of closest matches for each frame, return overall closest match
+    Given a dict of thumbnail matches for a video, return overall closest match(es)
     """
-    cmps = [x[0] for x in mins]
-    return mins[cmps.index(min(cmps))]
+    return [k for k,v in mins.items() if v == min(mins.values())]
 
 def matchvideo(video,pattern):
     """
@@ -35,7 +34,7 @@ def matchvideo(video,pattern):
     # generate set of hashes to compare to
     imgs = []
     hashes = []
-    for f in glob.glob(pattern):
+    for f in sorted(glob.glob(pattern)):
         imgs.append(f)
         hashes.append(imagehash.average_hash(Image.open(f)))
     
@@ -43,23 +42,35 @@ def matchvideo(video,pattern):
     v = cv2.VideoCapture(video)
     s,i = v.read()
     mins = {}
-    #found = False
     while s:
         hash = hashframe(i)
         cmp = [h - hash for h in hashes]
         mins = util.mineach(mins,dict(zip(imgs,cmp)))
         if 0 == min(cmp):
             log(f"Found an exact match with {imgs[cmp.index(0)]}")
-            #found = True
             break
         s,i = v.read()
     
-    #if found == False:
-    #    closest = getclosest(mins)
-    #    log(f"Closest match ({closest[0]}) with {closest[1]}")
-
     log("Finished scanning video")
     return mins
+
+def getmatches(final,matches):
+    # iterate over all the unmatched videos remaining
+    for k in list(matches):
+        # k is video name
+        # get closest thumbnail for this video, excluding any already there
+        m = list(filter(lambda x:not x in final.values(),matches[k]))
+        ms = dict([(k,v) for k,v in matches[k].items() if k in m])
+        c = getclosest(ms)
+        # if one single closest, take it & remove from the potentials
+        if 1 == len(c):
+            final[k] = c[0]
+            matches.pop(k)
+    # while still some potentials, recurse
+    if 0<len(matches):
+        final = getmatches(final,matches)
+    return final
+    
 
 def allvideos(videopattern,thumbpattern):
     """
@@ -67,12 +78,27 @@ def allvideos(videopattern,thumbpattern):
     """
     renames = {}
     matches = {}
-    for f in glob.glob(videopattern):
+    # potential = {}
+    for f in sorted(glob.glob(videopattern)):
         matches[f] = matchvideo(f,thumbpattern)
-        #c = getclosest(r)
-        #renames[f] = os.path.splitext(os.path.basename(c[1]))[0] + ".mkv"
+    #     c = getclosest(matches[f])
+    #     if 1 == len(c):
+    #         #renames[f] = os.path.splitext(os.path.basename(c[0]))[0] + ".mkv"
+    #         renames[f] = c[0]
+    #     else:
+    #         potential[f] = c
+
+    # # remove any items that have already matched perfectly
+    # for f,p in potential.items():
+    #     potential[f] = [x for x in p if not x in renames.values()]
+
+    renames = getmatches({},matches)
+    print('"Good" matches:')
+    util.prettydict(renames)
+    # print('\n"Potential matches')
+    # util.prettydict(potential)
     
     # TODO add logic here to break any ties & create rename dict
 
-    #return renames
-    return matches
+    return [renames,matches]
+    #return matches

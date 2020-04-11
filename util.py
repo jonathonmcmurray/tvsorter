@@ -30,3 +30,14 @@ def invert(x):
         # index into each dictionary from input to get values for this key
         inv[k] = dict([(x,y[k]) for x,y in x.items()])
     return inv
+
+def prettydict(d,sep="|"):
+    """
+    Pretty print a dictionary
+    """
+    # pad length for keys
+    pd = max(map(len,d))
+    for k,v in d.items():
+        # pad key to max length & format
+        print(f'{k.ljust(pd)} {sep} {v}')
+    return
